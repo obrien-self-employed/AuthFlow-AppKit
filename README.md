@@ -1,40 +1,42 @@
 # AuthFlow AppKit
 
-Reusable AuthFlow license-activation + in-app update-check integration for
-ASP.NET Core Blazor Server apps (Kestrel + Windows Service), extracted from
-the real pilot integration validated on `Brackford-0brien/FneManuelInvoiceApp`
-(`dev/web-version`). Two NuGet packages, published on this repo's GitHub
-Packages feed:
+Intégration réutilisable AuthFlow (activation de licence + vérification des
+mises à jour intégrée à l'app) pour les applications ASP.NET Core Blazor
+Server (Kestrel + Windows Service), extraite de la vraie intégration pilote
+validée sur `Brackford-0brien/FneManuelInvoiceApp` (`dev/web-version`). Deux
+packages NuGet, publiés sur le feed GitHub Packages de ce repo :
 
-| Package | What it is |
+| Package | Contenu |
 |---|---|
-| `AuthFlow.AppKit` | Class library: license file store/manager/hosted-service, `AppUpdateService`, and the Razor UI pieces (`AuthFlowBanner`, `LicenseActivation`, `UpdateCheck`). |
-| `AuthFlow.Template` | A `dotnet new` template pack that scaffolds a brand-new Blazor Server app already wired to `AuthFlow.AppKit` + the AuthFlow SDK, Kestrel/Windows Service host, Inno Setup installer, and the generic release CI/CD pipeline. |
+| `AuthFlow.AppKit` | Librairie de classes : store/manager/hosted-service de licence, `AppUpdateService`, et les composants Razor UI (`AuthFlowBanner`, `LicenseActivation`, `UpdateCheck`). |
+| `AuthFlow.Template` | Un template pack `dotnet new` qui génère une nouvelle app Blazor Server déjà câblée avec `AuthFlow.AppKit` + le SDK AuthFlow, l'hébergement Kestrel/Windows Service, l'installeur Inno Setup, et le pipeline CI/CD de release générique. |
 
-It depends on `AuthFlow.LicenseClient` (the AuthFlow SDK, from
-`Brackford-0brien/AuthFlow`, `sdk/dotnet/AuthFlow.LicenseClient`). That SDK
-isn't built from source in this repo - the pre-built `.nupkg` is vendored
-under `local-nuget-feed/` and re-published to this same GitHub Packages feed
-by `publish-package.yml`, so consumers never need the vendored copy or the
-`AuthFlow` source repo at all - just this repo's feed.
+Il dépend de `AuthFlow.LicenseClient` (le SDK AuthFlow, depuis
+`Brackford-0brien/AuthFlow`, `sdk/dotnet/AuthFlow.LicenseClient`). Ce SDK
+n'est pas compilé depuis les sources dans ce repo - le `.nupkg` pré-construit
+est vendored sous `local-nuget-feed/` et republié sur ce même feed GitHub
+Packages par `publish-package.yml`, donc les consommateurs n'ont jamais
+besoin de la copie vendored ni du repo source `AuthFlow` - juste du feed de
+ce repo.
 
-## Configure the GitHub Packages feed on your dev machine
+## Configurer le feed GitHub Packages sur votre poste dev
 
-GitHub Packages NuGet feeds require authentication even for read access on
-public feeds owned by a user account (this is a GitHub limitation, not
-something specific to this repo). You need a **Personal Access Token (PAT)**
-with **exactly the `read:packages` scope** (classic PAT) - nothing else is
-required to *consume* packages. (A fine-grained PAT with "Packages: Read"
-works too, but classic + `read:packages` is simplest.)
+Les feeds NuGet GitHub Packages nécessitent une authentification même en
+lecture seule sur des feeds publics appartenant à un compte utilisateur
+(c'est une limitation de GitHub, pas quelque chose de spécifique à ce repo).
+Il vous faut un **Personal Access Token (PAT)** avec **exactement le scope
+`read:packages`** (PAT classique) - rien d'autre n'est nécessaire pour
+*consommer* les packages. (Un PAT fine-grained avec "Packages: Read"
+fonctionne aussi, mais un PAT classique + `read:packages` est plus simple.)
 
-**Step by step:**
+**Étape par étape :**
 
-1. Go to https://github.com/settings/tokens → "Generate new token (classic)".
-2. Tick only `read:packages`. Give it an expiry you're comfortable with.
-3. Generate it and copy the token value (starts with `ghp_...`).
-4. Create a `nuget.config` **next to your `.sln`/project** (or globally at
-   `%AppData%\NuGet\NuGet.Config` to make it available to every project on
-   your machine) with:
+1. Allez sur https://github.com/settings/tokens → "Generate new token (classic)".
+2. Cochez uniquement `read:packages`. Donnez-lui une expiration qui vous convient.
+3. Générez-le et copiez la valeur du token (commence par `ghp_...`).
+4. Créez un `nuget.config` **à côté de votre `.sln`/projet** (ou globalement
+   dans `%AppData%\NuGet\NuGet.Config` pour le rendre disponible à tous les
+   projets de votre machine) avec :
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -53,22 +55,23 @@ works too, but classic + `read:packages` is simplest.)
 </configuration>
 ```
 
-Or equivalently via the CLI (writes the same thing):
+Ou de façon équivalente via la CLI (écrit la même chose) :
 
 ```powershell
 dotnet nuget add source https://nuget.pkg.github.com/Brackford-0brien/index.json `
   -n authflow-appkit-github -u YOUR_GITHUB_USERNAME -p ghp_YOUR_read_packages_TOKEN --store-password-in-clear-text
 ```
 
-That's the **only** local setup needed. No repo clone, no local feed, no
-extra steps - `dotnet new install` / `dotnet restore` do the rest.
+C'est le **seul** setup local nécessaire. Pas de clone du repo, pas de feed
+local, aucune étape supplémentaire - `dotnet new install` / `dotnet restore`
+font le reste.
 
-> **Never commit a real token into `nuget.config`.** Keep it in your
-> user-level `%AppData%\NuGet\NuGet.Config` instead of a repo-local file if
-> you're worried about accidentally committing it, or add `nuget.config` to
-> `.gitignore` in the project you're creating.
+> **Ne committez jamais un vrai token dans `nuget.config`.** Gardez-le plutôt
+> dans votre `%AppData%\NuGet\NuGet.Config` au niveau utilisateur si vous
+> craignez de le committer par accident, ou ajoutez `nuget.config` au
+> `.gitignore` du projet que vous créez.
 
-## Create a new app in 2 commands
+## Créer une nouvelle app en 2 commandes
 
 ```powershell
 dotnet new install AuthFlow.Template::*
@@ -77,19 +80,20 @@ cd MyNewApp
 dotnet build
 ```
 
-The `-n` value becomes the project/namespace/service name, the installer's
-`AppId` GUID is regenerated automatically per instantiation. Adjust
-`ProductDisplayName`/`ServiceBaseName`/branding strings directly in
-`Program.cs`/`appsettings.json` after generation if they should differ from
-the project name.
+La valeur de `-n` devient le nom du projet/namespace/service, le GUID `AppId`
+de l'installeur est régénéré automatiquement à chaque instanciation. Ajustez
+les chaînes `ProductDisplayName`/`ServiceBaseName`/branding directement dans
+`Program.cs`/`appsettings.json` après génération si elles doivent différer
+du nom du projet.
 
-**The generated `.csproj` already references `AuthFlow.AppKit` - no manual
-`dotnet add package` step required.** `AuthFlow.LicenseClient` (the SDK) is
-resolved automatically too, as a transitive dependency of `AuthFlow.AppKit`
-(you won't see it as a *top-level* reference in `dotnet list package` - that
-package only lists direct references by default - but `dotnet restore` /
-`dotnet build` pull it in without you doing anything). Verified for real with
-`dotnet list package` on a freshly generated project:
+**Le `.csproj` généré référence déjà `AuthFlow.AppKit` - aucune étape
+manuelle `dotnet add package` n'est nécessaire.** `AuthFlow.LicenseClient`
+(le SDK) est aussi résolu automatiquement, en tant que dépendance transitive
+de `AuthFlow.AppKit` (vous ne le verrez pas comme référence *top-level* dans
+`dotnet list package` - cette commande ne liste que les références directes
+par défaut - mais `dotnet restore` / `dotnet build` le récupèrent sans rien
+faire de plus). Vérifié pour de vrai avec `dotnet list package` sur un
+projet fraîchement généré :
 
 ```
 Top-level Package                                Requested    Resolved
@@ -98,70 +102,72 @@ Top-level Package                                Requested    Resolved
 > Radzen.Blazor                                   6.0.0        6.0.0
 ```
 
-This generates a Blazor Server project with:
-- `Program.cs` pre-wired with `builder.Services.AddAuthFlowAppKit(...)`, `builder.Host.UseWindowsService(...)`, Kestrel binding from config.
-- `appsettings.json` with an `AuthFlow` section ready for your product's `ProductId`/`ServerUrl`/`PublicKeys`.
-- `installer/setup.iss` (Inno Setup) with a freshly generated AppId GUID and your app/service name substituted in.
-- `.github/workflows/release.yml` - the same generic, parameterized CI/CD pipeline validated on FneManuelInvoiceApp (build → Inno Setup → checksum → GitHub Release on a separate public releases-only repo). Just configure `RELEASES_REPO` / `RELEASES_REPO_TOKEN` for the new app's own releases repo (see FneManuelInvoiceApp's `INSTALLER.md` §7 for the exact steps - not duplicated here to avoid drift; copy that doc alongside the workflow when you scaffold a new app).
+Ça génère un projet Blazor Server avec :
+- `Program.cs` pré-câblé avec `builder.Services.AddAuthFlowAppKit(...)`, `builder.Host.UseWindowsService(...)`, binding Kestrel depuis la config.
+- `appsettings.json` avec une section `AuthFlow` prête pour le `ProductId`/`ServerUrl`/`PublicKeys` de votre produit.
+- `installer/setup.iss` (Inno Setup) avec un GUID `AppId` fraîchement généré et le nom de votre app/service substitué.
+- `.github/workflows/release.yml` - le même pipeline CI/CD générique et paramétrable validé sur FneManuelInvoiceApp (build → Inno Setup → checksum → GitHub Release sur un repo public de releases séparé). Configurez juste `RELEASES_REPO` / `RELEASES_REPO_TOKEN` pour le repo de releases de la nouvelle app (voir `INSTALLER.md` §7 de FneManuelInvoiceApp pour les étapes exactes - non dupliquées ici pour éviter la divergence ; copiez ce doc à côté du workflow quand vous générez une nouvelle app).
 
-## Publishing a new package/template version
+## Publier une nouvelle version du package/template
 
-1. Bump `<Version>` in `src/AuthFlow.AppKit/AuthFlow.AppKit.csproj` (and
-   `template/AuthFlow.Template.csproj` if you changed the template).
+1. Bumpez `<Version>` dans `src/AuthFlow.AppKit/AuthFlow.AppKit.csproj` (et
+   `template/AuthFlow.Template.csproj` si vous avez modifié le template).
 2. `git tag vX.Y.Z && git push origin vX.Y.Z`
-3. `.github/workflows/publish-package.yml` builds, packs, and pushes
-   `AuthFlow.AppKit`, `AuthFlow.Template`, **and** the vendored
-   `AuthFlow.LicenseClient` SDK nupkg to
-   `https://nuget.pkg.github.com/Brackford-0brien/index.json`, all using the
-   default `GITHUB_TOKEN` (this repo's Actions permissions are set to
-   `packages: write`, which is all GitHub Packages needs for a package owned
-   by the same repo/owner - no extra PAT required for publishing).
-4. You can also trigger a publish without a tag via **Actions → Publish
-   AuthFlow.AppKit NuGet package → Run workflow** (`workflow_dispatch`) - useful
-   to republish the vendored SDK nupkg alone if it changes without bumping
-   AppKit's own version.
+3. `.github/workflows/publish-package.yml` build, pack, et pousse
+   `AuthFlow.AppKit`, `AuthFlow.Template`, **et** le nupkg vendored du SDK
+   `AuthFlow.LicenseClient` vers
+   `https://nuget.pkg.github.com/Brackford-0brien/index.json`, le tout avec
+   le `GITHUB_TOKEN` par défaut (les permissions Actions de ce repo sont
+   réglées sur `packages: write`, ce qui est tout ce dont GitHub Packages a
+   besoin pour un package appartenant au même repo/owner - aucun PAT
+   supplémentaire requis pour publier).
+4. Vous pouvez aussi déclencher une publication sans tag via **Actions →
+   Publish AuthFlow.AppKit NuGet package → Run workflow** (`workflow_dispatch`)
+   - utile pour republier uniquement le nupkg vendored du SDK s'il change
+   sans bumper la version de AppKit.
 
-## Verifying a clean dev machine can actually consume the packages
+## Vérifier qu'un poste dev propre peut vraiment consommer les packages
 
-This was tested for real, not assumed: `.github/workflows/test-clean-consume.yml`
-(on-demand, `workflow_dispatch`) runs on a brand-new GitHub-hosted runner -
-literally nothing preinstalled beyond the .NET SDK - and does exactly what a
-new team member would do:
+Ça a été testé pour de vrai, pas juste supposé :
+`.github/workflows/test-clean-consume.yml` (à la demande,
+`workflow_dispatch`) tourne sur un runner GitHub tout neuf - littéralement
+rien de préinstallé à part le SDK .NET - et fait exactement ce que ferait un
+nouveau membre de l'équipe :
 
-1. Writes a `nuget.config` with only `nuget.org` + this repo's GitHub Packages
-   feed, authenticated with a PAT stored as the `TEST_READ_PACKAGES_PAT`
-   secret (scope: `read:packages` only).
+1. Écrit un `nuget.config` avec seulement `nuget.org` + le feed GitHub
+   Packages de ce repo, authentifié avec un PAT stocké dans le secret
+   `TEST_READ_PACKAGES_PAT` (scope : `read:packages` uniquement).
 2. `dotnet new install AuthFlow.Template::0.1.0`
 3. `dotnet new authflow-blazor -n TestApp`
-4. `dotnet restore` + `dotnet list package` in the generated project
+4. `dotnet restore` + `dotnet list package` dans le projet généré
 5. `dotnet build -c Release`
 
-Result of the last real run: **all green**, `AuthFlow.AppKit 0.1.0` resolved
-automatically as a top-level package (see the exact output in the "Create a
-new app" section above), `AuthFlow.LicenseClient` resolved transitively, and
-the generated app built with 0 warnings/0 errors - confirmed with no local
-feed, no repo clone, no manual `dotnet add package`, nothing beyond the
-documented `nuget.config` + a read-only PAT.
+Résultat du dernier run réel : **tout vert**, `AuthFlow.AppKit 0.1.0` résolu
+automatiquement comme package top-level (voir la sortie exacte dans la
+section "Créer une nouvelle app" ci-dessus), `AuthFlow.LicenseClient` résolu
+en transitif, et l'app générée a buildé avec 0 warning/0 erreur - confirmé
+sans feed local, sans clone du repo, sans `dotnet add package` manuel, rien
+au-delà du `nuget.config` documenté + un PAT en lecture seule.
 
-If you want to run this check yourself (e.g. after a package change), add a
-`TEST_READ_PACKAGES_PAT` repository secret (classic PAT, `read:packages`
-scope) once, then run the workflow from the Actions tab whenever you want to
-re-verify.
+Si vous voulez relancer cette vérification vous-même (par ex. après un
+changement de package), ajoutez un secret de repo `TEST_READ_PACKAGES_PAT`
+(PAT classique, scope `read:packages`) une fois, puis lancez le workflow
+depuis l'onglet Actions quand vous voulez re-vérifier.
 
-## What's inside `AuthFlow.AppKit`
+## Ce que contient `AuthFlow.AppKit`
 
-- `Services/AuthFlowLicenseFileStore.cs` - persists the imported `.lic` token under `App_Data/authflow-license.lic`.
-- `Services/AuthFlowLicenseManager.cs` - shared activate+check logic (used at startup and by the import page).
-- `Services/AuthFlowLicenseHostedService.cs` + `AuthFlowLicenseConfig` - runs the initial + periodic license check as an `IHostedService`. The SDK's own heartbeat service is registered separately by `AddAuthFlowLicense` (from `AuthFlow.LicenseClient`) and started automatically by the same host - no extra wiring needed.
-- `Services/AuthFlowLicenseState.cs` - process-wide last-check-result snapshot + change notification, read by the Razor banner/pages.
-- `Services/AppUpdateService.cs` - wraps the SDK's `IUpdateChecker`, adds download + SHA-256 checksum verification + installer launch, with an optional GitHub-API authenticated-download fallback for private release repos (not needed for the recommended public releases-repo pattern).
-- `Components/AuthFlowBanner.razor` - non-blocking warning banner (invalid/offline license), drop into your `MainLayout`.
-- `Components/LicenseActivation.razor` - `.lic` file upload/import page (`/license-activation`).
-- `Components/UpdateCheck.razor` - "check for updates" page (`/update-check`), with download+install button.
-- `AuthFlowAppKitOptions.cs` - `ProductDisplayName` / `CompanyName` / `ServiceBaseName`, the knobs used to de-hardcode app-specific strings (temp folder names, installer filename fallback, User-Agent, UI titles/footer) that were previously hardcoded to "FneManuelInvoiceApp" in the original pilot code.
-- `ServiceCollectionExtensions.cs` - `services.AddAuthFlowAppKit(configuration, options => {...})`, the single call that wires everything above.
+- `Services/AuthFlowLicenseFileStore.cs` - persiste le token `.lic` importé sous `App_Data/authflow-license.lic`.
+- `Services/AuthFlowLicenseManager.cs` - logique partagée d'activation+vérification (utilisée au démarrage et par la page d'import).
+- `Services/AuthFlowLicenseHostedService.cs` + `AuthFlowLicenseConfig` - exécute la vérification initiale + périodique de licence en tant qu'`IHostedService`. Le service de heartbeat propre au SDK est enregistré séparément par `AddAuthFlowLicense` (depuis `AuthFlow.LicenseClient`) et démarré automatiquement par le même host - aucun câblage supplémentaire nécessaire.
+- `Services/AuthFlowLicenseState.cs` - snapshot du dernier résultat de vérification à l'échelle du processus + notification de changement, lu par la bannière/pages Razor.
+- `Services/AppUpdateService.cs` - encapsule l'`IUpdateChecker` du SDK, ajoute le téléchargement + la vérification de checksum SHA-256 + le lancement de l'installeur, avec un fallback optionnel de téléchargement authentifié via l'API GitHub pour les repos de releases privés (pas nécessaire avec le pattern recommandé de repo de releases public).
+- `Components/AuthFlowBanner.razor` - bannière d'avertissement non bloquante (licence invalide/hors-ligne), à intégrer dans votre `MainLayout`.
+- `Components/LicenseActivation.razor` - page d'upload/import de fichier `.lic` (`/license-activation`).
+- `Components/UpdateCheck.razor` - page "vérifier les mises à jour" (`/update-check`), avec bouton téléchargement+installation.
+- `AuthFlowAppKitOptions.cs` - `ProductDisplayName` / `CompanyName` / `ServiceBaseName`, les leviers utilisés pour dé-coder en dur les chaînes spécifiques à l'app (noms de dossiers temporaires, nom de fichier installeur de secours, User-Agent, titres UI/pied de page) qui étaient auparavant codées en dur à "FneManuelInvoiceApp" dans le code pilote d'origine.
+- `ServiceCollectionExtensions.cs` - `services.AddAuthFlowAppKit(configuration, options => {...})`, l'appel unique qui câble tout ce qui précède.
 
-### `Program.cs` usage
+### Utilisation dans `Program.cs`
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -179,7 +185,7 @@ builder.Host.UseWindowsService(options =>
 });
 ```
 
-### `appsettings.json` shape it reads
+### Structure `appsettings.json` attendue
 
 ```json
 {
@@ -200,35 +206,36 @@ builder.Host.UseWindowsService(options =>
 }
 ```
 
-## Real end-to-end test performed
+## Test réel de bout en bout effectué
 
-Both packages were built, packed, and validated for real (not just compiled):
+Les deux packages ont été construits, packagés et validés pour de vrai (pas
+juste compilés) :
 
-1. `dotnet pack` on `AuthFlow.AppKit.csproj` and `template/AuthFlow.Template.csproj` → both produced valid `.nupkg`s.
-2. `dotnet new install AuthFlow.Template.0.1.0.nupkg` from a local feed → template registered successfully (`authflow-blazor`).
-3. `dotnet new authflow-blazor -n TestApp` → generated a project with `TestApp.csproj`, a freshly generated installer AppId GUID substituted into `setup.iss`, and all `AuthFlowApp1` references renamed to `TestApp`.
-4. `dotnet build` on the generated project → **0 warnings, 0 errors**.
-5. `dotnet run` with a real `ProductId`/`LicenseKey`/`PublicKeys` from the FneManuelInvoiceApp pilot's AuthFlow product, against the real production server `https://auth-flow-dun.vercel.app`:
-   - `POST /api/activate` and `POST /api/validate` were called for real (visible in logs), confirming the extracted `AuthFlowLicenseManager`/`AuthFlowLicenseHostedService` work unchanged once separated from the original app.
-   - The (now-revoked, from earlier pilot testing) license correctly came back as `Revoked` - proving the SDK's Ed25519 signature/validation pipeline still functions end-to-end through the extracted code.
-   - `GET /api/updates/check` was called for real from the generated app's `/update-check` page, confirming `AppUpdateService` works too.
-   - `/`, `/license-activation`, and `/update-check` all returned HTTP 200 with the expected page titles once `AdditionalAssemblies`/`AddAdditionalAssemblies` were wired in `Routes.razor`/`Program.cs` so ASP.NET Core discovers `@page`-routed components living in the referenced `AuthFlow.AppKit` package assembly (a real, non-obvious integration issue caught only by this real run, not by `dotnet build` alone).
-6. Test artifacts (temp `dotnet new install`, generated `TestApp` folder) were cleaned up afterward.
+1. `dotnet pack` sur `AuthFlow.AppKit.csproj` et `template/AuthFlow.Template.csproj` → les deux ont produit des `.nupkg` valides.
+2. `dotnet new install AuthFlow.Template.0.1.0.nupkg` depuis un feed local → le template s'est enregistré avec succès (`authflow-blazor`).
+3. `dotnet new authflow-blazor -n TestApp` → génère un projet avec `TestApp.csproj`, un GUID `AppId` d'installeur fraîchement généré substitué dans `setup.iss`, et toutes les références `AuthFlowApp1` renommées en `TestApp`.
+4. `dotnet build` sur le projet généré → **0 warning, 0 erreur**.
+5. `dotnet run` avec un vrai `ProductId`/`LicenseKey`/`PublicKeys` du produit AuthFlow pilote de FneManuelInvoiceApp, contre le vrai serveur de production `https://auth-flow-dun.vercel.app` :
+   - `POST /api/activate` et `POST /api/validate` ont été appelés pour de vrai (visible dans les logs), confirmant que les `AuthFlowLicenseManager`/`AuthFlowLicenseHostedService` extraits fonctionnent à l'identique une fois séparés de l'app d'origine.
+   - La licence (désormais révoquée, suite aux tests précédents du pilote) est bien revenue en `Revoked` - prouvant que le pipeline de validation de signature Ed25519 du SDK fonctionne toujours de bout en bout à travers le code extrait.
+   - `GET /api/updates/check` a été appelé pour de vrai depuis la page `/update-check` de l'app générée, confirmant que `AppUpdateService` fonctionne aussi.
+   - `/`, `/license-activation`, et `/update-check` ont tous retourné HTTP 200 avec les titres de page attendus une fois `AdditionalAssemblies`/`AddAdditionalAssemblies` câblés dans `Routes.razor`/`Program.cs` pour qu'ASP.NET Core découvre les composants routés par `@page` vivant dans l'assembly `AuthFlow.AppKit` référencé (un bug d'intégration réel et non évident, détecté uniquement par ce run réel, pas par `dotnet build` seul).
+6. Les artefacts de test (`dotnet new install` temporaire, dossier `TestApp` généré) ont été nettoyés ensuite.
 
-## Design notes / assumptions carried over from the pilot
+## Notes de conception / hypothèses reprises du pilote
 
-- **Mono-tenant deployment assumption**: one server/process instance per
-  customer, so the license file store is a single flat file, not a
-  per-tenant database row.
-- **Radzen.Blazor dependency**: the extracted Razor components use Radzen
-  (`RadzenIcon`, `RadzenButton`, `RadzenAlert`, etc.) - this is an explicit
-  package dependency of `AuthFlow.AppKit`. Confirmed with the client: most of
-  their apps already use Radzen, so this stays a hard dependency (not made
-  optional) - kept simple on purpose.
-- **Public releases-only repo pattern recommended**: don't distribute a
-  GitHub token to client machines just to download installers. Create a
-  second, public, code-free repo per app (e.g. `MyNewApp-releases`) and
-  point the release workflow's `RELEASES_REPO` variable at it - downloads
-  are then fully anonymous. `AppUpdateService`'s GitHub-API authenticated
-  path is a defensive fallback only, for the (discouraged) case of a private
-  releases repo.
+- **Hypothèse de déploiement mono-tenant** : une instance serveur/processus
+  par client, donc le store de licence est un simple fichier plat, pas une
+  ligne de base de données par tenant.
+- **Dépendance à Radzen.Blazor** : les composants Razor extraits utilisent
+  Radzen (`RadzenIcon`, `RadzenButton`, `RadzenAlert`, etc.) - c'est une
+  dépendance de package explicite de `AuthFlow.AppKit`. Confirmé avec le
+  client : la plupart de ses apps utilisent déjà Radzen, donc ça reste une
+  dépendance dure (pas rendue optionnelle) - gardé simple volontairement.
+- **Pattern de repo de releases public recommandé** : ne pas distribuer de
+  token GitHub aux machines clientes juste pour télécharger les installeurs.
+  Créez un second repo public, sans code, par app (ex. `MyNewApp-releases`)
+  et pointez la variable `RELEASES_REPO` du workflow de release dessus - les
+  téléchargements deviennent alors entièrement anonymes. Le chemin
+  authentifié via l'API GitHub d'`AppUpdateService` n'est qu'un fallback
+  défensif, pour le cas (déconseillé) d'un repo de releases privé.
