@@ -1,0 +1,78 @@
+name: Test clean-machine package consumption
+
+# One-off / on-demand verification that a brand new developer machine - with
+# NOTHING pre-installed except the .NET SDK and a nuget.config pointing at
+# this repo's GitHub Packages feed with a read:packages-scoped PAT - can
+# actually consume AuthFlow.Template + AuthFlow.AppKit end to end:
+#   dotnet new install -> dotnet new authflow-blazor -n TestApp -> dotnet build
+#
+# This intentionally runs on a fresh GitHub-hosted runner (as clean as a real
+# new dev machine) and never touches the source checkout of this repo for
+# the actual test - it only uses the published GitHub Packages feed, exactly
+# like an external consumer would.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  clean-consume:
+    runs-on: windows-latest
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Write nuget.config (simulates a fresh dev machine)
+        shell: pwsh
+        run: |
+          mkdir clean-test
+          cd clean-test
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+              <add key="github-authflow" value="https://nuget.pkg.github.com/Brackford-0brien/index.json" />
+            </packageSources>
+            <packageSourceCredentials>
+              <github-authflow>
+                <add key="Username" value="Brackford-0brien" />
+                <add key="ClearTextPassword" value="${{ secrets.TEST_READ_PACKAGES_PAT }}" />
+              </github-authflow>
+            </packageSourceCredentials>
+          </configuration>
+          "@ | Out-File -Encoding utf8 nuget.config
+
+      - name: dotnet new install AuthFlow.Template
+        shell: pwsh
+        working-directory: clean-test
+        run: dotnet new install AuthFlow.Template::0.1.0
+
+      - name: dotnet new authflow-blazor -n TestApp
+        shell: pwsh
+        working-directory: clean-test
+        run: dotnet new authflow-blazor -n TestApp
+
+      - name: Copy nuget.config into generated project (restore needs it there too)
+        shell: pwsh
+        working-directory: clean-test
+        run: Copy-Item nuget.config TestApp/nuget.config
+
+      - name: dotnet restore TestApp (proves AuthFlow.AppKit + AuthFlow.LicenseClient resolve automatically)
+        shell: pwsh
+        working-directory: clean-test/TestApp
+        run: dotnet restore
+
+      - name: List resolved package references
+        shell: pwsh
+        working-directory: clean-test/TestApp
+        run: dotnet list package
+
+      - name: dotnet build TestApp
+        shell: pwsh
+        working-directory: clean-test/TestApp
+        run: dotnet build -c Release --no-restore
