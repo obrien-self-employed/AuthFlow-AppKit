@@ -30,6 +30,7 @@ public sealed class AppUpdateService
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private readonly IUpdateChecker _updateChecker;
+    private readonly AuthFlowLicenseManager _licenseManager;
     private readonly HttpClient _downloadClient;
     private readonly ILogger<AppUpdateService> _logger;
     private readonly string? _gitHubToken;
@@ -37,12 +38,14 @@ public sealed class AppUpdateService
 
     public AppUpdateService(
         IUpdateChecker updateChecker,
+        AuthFlowLicenseManager licenseManager,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         IOptions<AuthFlowAppKitOptions> options,
         ILogger<AppUpdateService> logger)
     {
         _updateChecker = updateChecker;
+        _licenseManager = licenseManager;
         // A plain, un-configured HttpClient (no AuthFlow BaseAddress) since
         // the installer asset is typically hosted on GitHub Releases, not
         // the AuthFlow server itself.
@@ -96,7 +99,7 @@ public sealed class AppUpdateService
     }
 
     public Task<UpdateCheckResult> CheckForUpdateAsync(CancellationToken ct = default) =>
-        _updateChecker.CheckForUpdateAsync(CurrentVersion, ct);
+        _updateChecker.CheckForUpdateAsync(CurrentVersion, _licenseManager.ResolveLicenseKey(), ct);
 
     /// <summary>
     /// Downloads the installer asset described by <paramref name="result"/>
