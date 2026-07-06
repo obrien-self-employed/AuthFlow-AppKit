@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <!-- AuthFlow.AppKit brings AuthFlow.LicenseClient in transitively. -->
-    <PackageReference Include="AuthFlow.AppKit" Version="0.1.0" />
+    <PackageReference Include="AuthFlow.AppKit" Version="0.1.1" />
     <PackageReference Include="Radzen.Blazor" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
   </ItemGroup>

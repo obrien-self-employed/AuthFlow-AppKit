@@ -3,78 +3,40 @@
 Intégration réutilisable AuthFlow (activation de licence + vérification des
 mises à jour intégrée à l'app) pour les applications ASP.NET Core Blazor
 Server (Kestrel + Windows Service), extraite de la vraie intégration pilote
-validée sur `Brackford-0brien/FneManuelInvoiceApp` (`dev/web-version`). Deux
-packages NuGet, publiés sur le feed GitHub Packages de ce repo :
+validée sur `Brackford-0brien/FneManuelInvoiceApp` (`dev/web-version`). Trois
+packages NuGet, **publiés publiquement sur nuget.org** :
 
 | Package | Contenu |
 |---|---|
-| `AuthFlow.AppKit` | Librairie de classes : store/manager/hosted-service de licence, `AppUpdateService`, et les composants Razor UI (`AuthFlowBanner`, `LicenseActivation`, `UpdateCheck`). |
-| `AuthFlow.Template` | Un template pack `dotnet new` qui génère une nouvelle app Blazor Server déjà câblée avec `AuthFlow.AppKit` + le SDK AuthFlow, l'hébergement Kestrel/Windows Service, l'installeur Inno Setup, et le pipeline CI/CD de release générique. |
+| [`AuthFlow.LicenseClient`](https://www.nuget.org/packages/AuthFlow.LicenseClient) | Le SDK AuthFlow (validation de licence Ed25519 hybride online/offline, heartbeat, update-check). Source : `Brackford-0brien/AuthFlow`, `sdk/dotnet/AuthFlow.LicenseClient`. |
+| [`AuthFlow.AppKit`](https://www.nuget.org/packages/AuthFlow.AppKit) | Librairie de classes : store/manager/hosted-service de licence, `AppUpdateService`, et les composants Razor UI (`AuthFlowBanner`, `LicenseActivation`, `UpdateCheck`). Dépend de `AuthFlow.LicenseClient`. |
+| [`AuthFlow.Template`](https://www.nuget.org/packages/AuthFlow.Template) | Un template pack `dotnet new` (`PackageType=Template`) qui génère une nouvelle app Blazor Server déjà câblée avec `AuthFlow.AppKit` + le SDK AuthFlow, l'hébergement Kestrel/Windows Service, l'installeur Inno Setup, et le pipeline CI/CD de release générique. Aussi visible dans le sélecteur **Créer un nouveau projet** de Visual Studio (recherchez "authflow") une fois l'indexation nuget.org terminée. |
 
-Il dépend de `AuthFlow.LicenseClient` (le SDK AuthFlow, depuis
-`Brackford-0brien/AuthFlow`, `sdk/dotnet/AuthFlow.LicenseClient`). Ce SDK
-n'est pas compilé depuis les sources dans ce repo - le `.nupkg` pré-construit
-est vendored sous `local-nuget-feed/` et republié sur ce même feed GitHub
-Packages par `publish-package.yml`, donc les consommateurs n'ont jamais
-besoin de la copie vendored ni du repo source `AuthFlow` - juste du feed de
-ce repo.
+`AuthFlow.LicenseClient` n'est pas compilé depuis les sources dans ce repo -
+le `.nupkg` pré-construit est vendored sous `local-nuget-feed/` (copié depuis
+une build locale du repo source `AuthFlow`) et republié par ce repo vers
+nuget.org à chaque nouvelle version. Les consommateurs n'ont jamais besoin de
+la copie vendored ni du repo source `AuthFlow` - juste de nuget.org.
 
-## Configurer le feed GitHub Packages sur votre poste dev
+## Aucune configuration de feed nécessaire
 
-Les feeds NuGet GitHub Packages nécessitent une authentification même en
-lecture seule sur des feeds publics appartenant à un compte utilisateur
-(c'est une limitation de GitHub, pas quelque chose de spécifique à ce repo).
-Il vous faut un **Personal Access Token (PAT)** avec **exactement le scope
-`read:packages`** (PAT classique) - rien d'autre n'est nécessaire pour
-*consommer* les packages. (Un PAT fine-grained avec "Packages: Read"
-fonctionne aussi, mais un PAT classique + `read:packages` est plus simple.)
+Les 3 packages sont publics sur **nuget.org**, la source NuGet par défaut sur
+n'importe quel poste avec le SDK .NET installé. **Aucun `nuget.config`,
+aucun PAT, aucune authentification n'est nécessaire** pour les consommer -
+ni pour `dotnet restore`/`dotnet build`, ni pour `dotnet new install`.
 
-**Étape par étape :**
-
-1. Allez sur https://github.com/settings/tokens → "Generate new token (classic)".
-2. Cochez uniquement `read:packages`. Donnez-lui une expiration qui vous convient.
-3. Générez-le et copiez la valeur du token (commence par `ghp_...`).
-4. Créez un `nuget.config` **à côté de votre `.sln`/projet** (ou globalement
-   dans `%AppData%\NuGet\NuGet.Config` pour le rendre disponible à tous les
-   projets de votre machine) avec :
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <clear />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <add key="authflow-appkit-github" value="https://nuget.pkg.github.com/Brackford-0brien/index.json" />
-  </packageSources>
-  <packageSourceCredentials>
-    <authflow-appkit-github>
-      <add key="Username" value="YOUR_GITHUB_USERNAME" />
-      <add key="ClearTextPassword" value="ghp_YOUR_read_packages_TOKEN" />
-    </authflow-appkit-github>
-  </packageSourceCredentials>
-</configuration>
-```
-
-Ou de façon équivalente via la CLI (écrit la même chose) :
-
-```powershell
-dotnet nuget add source https://nuget.pkg.github.com/Brackford-0brien/index.json `
-  -n authflow-appkit-github -u YOUR_GITHUB_USERNAME -p ghp_YOUR_read_packages_TOKEN --store-password-in-clear-text
-```
-
-C'est le **seul** setup local nécessaire. Pas de clone du repo, pas de feed
-local, aucune étape supplémentaire - `dotnet new install` / `dotnet restore`
-font le reste.
-
-> **Ne committez jamais un vrai token dans `nuget.config`.** Gardez-le plutôt
-> dans votre `%AppData%\NuGet\NuGet.Config` au niveau utilisateur si vous
-> craignez de le committer par accident, ou ajoutez `nuget.config` au
-> `.gitignore` du projet que vous créez.
+> Historique : ces packages étaient initialement publiés sur le feed GitHub
+> Packages (privé) de ce repo, ce qui nécessitait un PAT `read:packages` côté
+> consommateur. Ils ont depuis été republiés sur nuget.org (public) pour que
+> le template `dotnet new` soit utilisable sans aucune étape d'authentification
+> et découvrable depuis Visual Studio. `AuthFlow.LicenseClient`/`AuthFlow.AppKit`
+> restent des bibliothèques génériques sans donnée client réelle en dur (voir
+> "Sécurité" plus bas) - c'est ce qui rend leur publication publique acceptable.
 
 ## Créer une nouvelle app en 2 commandes
 
 ```powershell
-dotnet new install AuthFlow.Template::*
+dotnet new install AuthFlow.Template
 dotnet new authflow-blazor -n MyNewApp
 cd MyNewApp
 dotnet build
@@ -97,7 +59,7 @@ projet fraîchement généré :
 
 ```
 Top-level Package                                Requested    Resolved
-> AuthFlow.AppKit                                 0.1.0        0.1.0
+> AuthFlow.AppKit                                 0.1.1        0.1.1
 > Microsoft.Extensions.Hosting.WindowsServices    10.0.0       10.0.0
 > Radzen.Blazor                                   6.0.0        6.0.0
 ```
@@ -111,48 +73,53 @@ Top-level Package                                Requested    Resolved
 ## Publier une nouvelle version du package/template
 
 1. Bumpez `<Version>` dans `src/AuthFlow.AppKit/AuthFlow.AppKit.csproj` (et
-   `template/AuthFlow.Template.csproj` si vous avez modifié le template).
-2. `git tag vX.Y.Z && git push origin vX.Y.Z`
-3. `.github/workflows/publish-package.yml` build, pack, et pousse
-   `AuthFlow.AppKit`, `AuthFlow.Template`, **et** le nupkg vendored du SDK
-   `AuthFlow.LicenseClient` vers
-   `https://nuget.pkg.github.com/Brackford-0brien/index.json`, le tout avec
-   le `GITHUB_TOKEN` par défaut (les permissions Actions de ce repo sont
-   réglées sur `packages: write`, ce qui est tout ce dont GitHub Packages a
-   besoin pour un package appartenant au même repo/owner - aucun PAT
-   supplémentaire requis pour publier).
-4. Vous pouvez aussi déclencher une publication sans tag via **Actions →
-   Publish AuthFlow.AppKit NuGet package → Run workflow** (`workflow_dispatch`)
-   - utile pour republier uniquement le nupkg vendored du SDK s'il change
-   sans bumper la version de AppKit.
+   `template/AuthFlow.Template.csproj` si vous avez modifié le template, et
+   `template/content/AuthFlowApp1/AuthFlowApp1.csproj` pour pointer la bonne
+   version d'`AuthFlow.AppKit` dans le projet généré). Si le SDK
+   `AuthFlow.LicenseClient` a changé, bumpez aussi sa version dans
+   `Brackford-0brien/AuthFlow` et copiez le nouveau `.nupkg` dans
+   `local-nuget-feed/`.
+2. `dotnet pack` chaque projet modifié en local pour vérifier que ça
+   compile et se pack sans erreur avant de publier.
+3. Publiez sur nuget.org, **dans cet ordre de dépendance** (LicenseClient
+   d'abord, sinon la restauration d'AppKit échoue le temps que
+   LicenseClient soit indexé) :
+
+   ```powershell
+   dotnet nuget push local-nuget-feed\AuthFlow.LicenseClient.<version>.nupkg -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
+   dotnet nuget push local-nuget-feed\AuthFlow.AppKit.<version>.nupkg        -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
+   dotnet nuget push local-nuget-feed\AuthFlow.Template.<version>.nupkg     -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
+   ```
+
+   L'API key se génère sur https://www.nuget.org/account/apikeys (scope
+   "Push", limité aux `PackageId` `AuthFlow.*`). **nuget.org n'autorise pas
+   de republier un numéro de version déjà poussé** - un bump de `<Version>`
+   est donc obligatoire à chaque publication, même pour un simple correctif.
+4. `git tag vX.Y.Z && git push origin vX.Y.Z` pour garder une trace de la
+   version publiée dans l'historique git.
+5. Comptez quelques minutes pour l'indexation nuget.org avant qu'une
+   nouvelle version soit résolvable par `dotnet restore`, et un peu plus
+   longtemps avant que `AuthFlow.Template` apparaisse/se mette à jour dans
+   le sélecteur **Créer un nouveau projet** de Visual Studio (cache côté VS,
+   pas seulement l'indexation nuget.org).
 
 ## Vérifier qu'un poste dev propre peut vraiment consommer les packages
 
-Ça a été testé pour de vrai, pas juste supposé :
-`.github/workflows/test-clean-consume.yml` (à la demande,
-`workflow_dispatch`) tourne sur un runner GitHub tout neuf - littéralement
-rien de préinstallé à part le SDK .NET - et fait exactement ce que ferait un
-nouveau membre de l'équipe :
+Ça a été testé pour de vrai, pas juste supposé - deux fois :
 
-1. Écrit un `nuget.config` avec seulement `nuget.org` + le feed GitHub
-   Packages de ce repo, authentifié avec un PAT stocké dans le secret
-   `TEST_READ_PACKAGES_PAT` (scope : `read:packages` uniquement).
-2. `dotnet new install AuthFlow.Template::0.1.0`
-3. `dotnet new authflow-blazor -n TestApp`
-4. `dotnet restore` + `dotnet list package` dans le projet généré
-5. `dotnet build -c Release`
+1. **Historique (feed GitHub Packages)** : `.github/workflows/test-clean-consume.yml`
+   a fait tourner un runner GitHub tout neuf qui installe le template et
+   build le projet généré avec un PAT `read:packages` en lecture seule.
+2. **Actuel (nuget.org public)** : depuis un dossier local totalement propre
+   (aucun cache NuGet réutilisé, `nuget.config` limité à `nuget.org` +
+   éventuellement un feed de staging pour tester une version pas encore
+   indexée), `dotnet new install AuthFlow.Template`, puis
+   `dotnet new authflow-blazor -n TestApp`, puis `dotnet restore` et
+   `dotnet build -c Release` - **0 warning, 0 erreur, aucune source NuGet ni
+   aucun token GitHub configuré**. C'est exactement le scénario visé par la
+   demande client "aucune dépendance GitHub pour un dev qui crée un new
+   projet" : nuget.org seul suffit.
 
-Résultat du dernier run réel : **tout vert**, `AuthFlow.AppKit 0.1.0` résolu
-automatiquement comme package top-level (voir la sortie exacte dans la
-section "Créer une nouvelle app" ci-dessus), `AuthFlow.LicenseClient` résolu
-en transitif, et l'app générée a buildé avec 0 warning/0 erreur - confirmé
-sans feed local, sans clone du repo, sans `dotnet add package` manuel, rien
-au-delà du `nuget.config` documenté + un PAT en lecture seule.
-
-Si vous voulez relancer cette vérification vous-même (par ex. après un
-changement de package), ajoutez un secret de repo `TEST_READ_PACKAGES_PAT`
-(PAT classique, scope `read:packages`) une fois, puis lancez le workflow
-depuis l'onglet Actions quand vous voulez re-vérifier.
 
 ## Ce que contient `AuthFlow.AppKit`
 
@@ -239,3 +206,25 @@ juste compilés) :
   téléchargements deviennent alors entièrement anonymes. Le chemin
   authentifié via l'API GitHub d'`AppUpdateService` n'est qu'un fallback
   défensif, pour le cas (déconseillé) d'un repo de releases privé.
+
+## Sécurité : pourquoi publier ces packages publiquement sur nuget.org est acceptable
+
+Ces 3 packages sont volontairement génériques et ne contiennent **aucune**
+donnée propre à un client ou à un produit réel :
+
+- Aucun `ProductId`, `licenseKey`, ou clé publique de signature réels codés
+  en dur - `appsettings.json` du template a ces champs vides/à remplir par
+  le développeur qui génère l'app.
+- La seule URL en dur est `https://auth-flow-dun.vercel.app`, l'endpoint
+  **public** de la plateforme SaaS AuthFlow elle-même (pas un secret) -
+  c'est l'équivalent de documenter l'URL d'une API publique.
+- La logique de vérification de signature Ed25519/validation de licence est
+  un algorithme générique (basé sur des clés publiques fournies en config) -
+  la sécurité du système ne repose jamais sur le secret du code du SDK, mais
+  sur la clé **privée** de signature qui ne quitte jamais le serveur AuthFlow.
+
+Ce qui **reste privé** (ne va jamais sur nuget.org) : le code source du
+serveur AuthFlow lui-même (`Brackford-0brien/AuthFlow`, la partie plateforme/
+API, pas le dossier SDK), les vraies licences/clients/`ProductId` de chaque
+client, et le code source métier des apps clientes (FneManuelInvoiceApp,
+RadissonConnect, etc.) qui *consomment* ces packages.

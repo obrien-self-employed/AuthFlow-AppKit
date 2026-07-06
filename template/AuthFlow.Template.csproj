@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>AuthFlow.Template</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Brackford-0brien</Authors>
     <Description>
       dotnet-new template pack: scaffolds a Blazor Server app pre-wired with
@@ -20,9 +20,11 @@
     <NoDefaultExcludes>true</NoDefaultExcludes>
     <RepositoryUrl>https://github.com/Brackford-0brien/AuthFlow-AppKit</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
     <Content Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" PackagePath="content\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Remove="**\*.cs" />
   </ItemGroup>

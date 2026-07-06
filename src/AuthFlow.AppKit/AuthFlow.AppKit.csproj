@@ -8,7 +8,7 @@
 
     <!-- NuGet package metadata (GitHub Packages) -->
     <PackageId>AuthFlow.AppKit</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Brackford-0brien</Authors>
     <Description>
       Reusable AuthFlow license activation/validation + in-app update-check
@@ -18,6 +18,7 @@
     </Description>
     <RepositoryUrl>https://github.com/Brackford-0brien/AuthFlow-AppKit</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
 
@@ -29,7 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AuthFlow.LicenseClient" Version="0.1.0" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AuthFlow.LicenseClient" Version="0.1.1" />
     <PackageReference Include="Radzen.Blazor" Version="6.0.0" />
   </ItemGroup>
 
