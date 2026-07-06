@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Brackford-0brien",
+  "classifications": [ "Web", "Blazor", "AuthFlow" ],
+  "identity": "AuthFlow.Template.BlazorServer",
+  "name": "AuthFlow Blazor Server App (AppKit + Kestrel/Service)",
+  "shortName": "authflow-blazor",
+  "sourceName": "AuthFlowApp1",
+  "preferNameDirectory": true,
+  "symbols": {
+    "installerGuid": {
+      "type": "generated",
+      "generator": "guid",
+      "replaces": "00000000-0000-0000-0000-000000000000",
+      "parameters": {
+        "defaultFormat": "D"
+      }
+    }
+  },
+  "primaryOutputs": [
+    { "path": "AuthFlowApp1.csproj" }
+  ]
+}

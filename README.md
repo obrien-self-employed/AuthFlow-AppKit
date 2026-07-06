@@ -21,10 +21,16 @@ for real, swap the `NuGet.Config` source accordingly.
 
 ```powershell
 dotnet new install AuthFlow.Template::*
-dotnet new authflow-blazor -n MyNewApp --product-display-name "My New App" --service-base-name MyNewApp
+dotnet new authflow-blazor -n MyNewApp
 cd MyNewApp
 dotnet build
 ```
+
+The `-n` value becomes the project/namespace/service name, the installer's
+`AppId` GUID is regenerated automatically per instantiation. Adjust
+`ProductDisplayName`/`ServiceBaseName`/branding strings directly in
+`Program.cs`/`appsettings.json` after generation if they should differ from
+the project name.
 
 This generates a Blazor Server project with:
 - `Program.cs` pre-wired with `builder.Services.AddAuthFlowAppKit(...)`, `builder.Host.UseWindowsService(...)`, Kestrel binding from config.
@@ -126,10 +132,24 @@ builder.Host.UseWindowsService(options =>
 }
 ```
 
+## Real end-to-end test performed
+
+Both packages were built, packed, and validated for real (not just compiled):
+
+1. `dotnet pack` on `AuthFlow.AppKit.csproj` and `template/AuthFlow.Template.csproj` → both produced valid `.nupkg`s.
+2. `dotnet new install AuthFlow.Template.0.1.0.nupkg` from a local feed → template registered successfully (`authflow-blazor`).
+3. `dotnet new authflow-blazor -n TestApp` → generated a project with `TestApp.csproj`, a freshly generated installer AppId GUID substituted into `setup.iss`, and all `AuthFlowApp1` references renamed to `TestApp`.
+4. `dotnet build` on the generated project → **0 warnings, 0 errors**.
+5. `dotnet run` with a real `ProductId`/`LicenseKey`/`PublicKeys` from the FneManuelInvoiceApp pilot's AuthFlow product, against the real production server `https://auth-flow-dun.vercel.app`:
+   - `POST /api/activate` and `POST /api/validate` were called for real (visible in logs), confirming the extracted `AuthFlowLicenseManager`/`AuthFlowLicenseHostedService` work unchanged once separated from the original app.
+   - The (now-revoked, from earlier pilot testing) license correctly came back as `Revoked` - proving the SDK's Ed25519 signature/validation pipeline still functions end-to-end through the extracted code.
+   - `GET /api/updates/check` was called for real from the generated app's `/update-check` page, confirming `AppUpdateService` works too.
+   - `/`, `/license-activation`, and `/update-check` all returned HTTP 200 with the expected page titles once `AdditionalAssemblies`/`AddAdditionalAssemblies` were wired in `Routes.razor`/`Program.cs` so ASP.NET Core discovers `@page`-routed components living in the referenced `AuthFlow.AppKit` package assembly (a real, non-obvious integration issue caught only by this real run, not by `dotnet build` alone).
+6. Test artifacts (temp `dotnet new install`, generated `TestApp` folder) were cleaned up afterward.
+
 ## Design notes / assumptions carried over from the pilot
 
 - **Mono-tenant deployment assumption**: one server/process instance per
-  customer, so the license file store is a single flat file, not a
   per-tenant database row.
 - **Radzen.Blazor dependency**: the extracted Razor components use Radzen
   (`RadzenIcon`, `RadzenButton`, `RadzenAlert`, etc.) - this is an explicit

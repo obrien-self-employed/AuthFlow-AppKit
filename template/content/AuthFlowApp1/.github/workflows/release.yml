@@ -1,0 +1,135 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g.:
+#   git tag v1.2.3 && git push --tags
+# See INSTALLER.md "Déclencher une nouvelle version" for the full process.
+#
+# This workflow is designed to be a REUSABLE TEMPLATE across the group's
+# .NET apps (RadissonConnect, InterfaceX3, FNEBridge, PI, Osiris runtime,
+# ...): the only per-app knobs are the repo *variables* below (no hardcoded
+# repo/product names in this file). To adapt it for another app, copy this
+# file + installer/setup.iss into the target repo, adjust setup.iss (AppId,
+# product name, exe name), and set the variables/secrets listed in
+# INSTALLER.md "§5 - Réutiliser ce pipeline pour une autre application".
+#
+# Required repo variables (Settings > Secrets and variables > Actions > Variables):
+#   PROJECT_NAME          csproj base name, e.g. "FneManuelInvoiceApp"
+#                         (file is expected at "<PROJECT_NAME>.csproj" at repo root)
+#   RELEASES_REPO         "owner/repo" of the SEPARATE public, code-free repo
+#                         that hosts installer Releases (see INSTALLER.md §3bis)
+# Optional repo variables:
+#   PRODUCT_DISPLAY_NAME  Human-friendly name used in the Release title
+#                         (defaults to PROJECT_NAME if not set)
+#
+# Required repo secret:
+#   RELEASES_REPO_TOKEN   token with write access to RELEASES_REPO (see
+#                         INSTALLER.md §3bis for how to create/scope it)
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    env:
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      PRODUCT_DISPLAY_NAME: ${{ vars.PRODUCT_DISPLAY_NAME || vars.PROJECT_NAME }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required repo variables
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ vars.PROJECT_NAME }}")) {
+            throw "Repo variable 'PROJECT_NAME' n'est pas defini (Settings > Secrets and variables > Actions > Variables). Voir INSTALLER.md paragraphe 'Reutiliser ce pipeline pour une autre application'."
+          }
+          if ([string]::IsNullOrWhiteSpace("${{ vars.RELEASES_REPO }}")) {
+            throw "Repo variable 'RELEASES_REPO' n'est pas defini (format owner/repo). Voir INSTALLER.md paragraphe 'Reutiliser ce pipeline pour une autre application'."
+          }
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          # AssemblyVersion/FileVersion n'acceptent que major[.minor[.build[.revision]]]
+          # (pas de suffixe pre-release type "-rc1"/"-test") - on l'utilise pour ces deux
+          # proprietes, et on garde $version (avec suffixe eventuel) pour -p:Version
+          # (Version informationnelle, affichee dans "Verifier les mises a jour").
+          $numericVersion = ($version -split '-')[0]
+          if ($numericVersion -notmatch '^\d+(\.\d+){0,3}$') {
+            throw "Tag '$tag' ne contient pas une version numerique valide (ex: v1.2.3 ou v1.2.3-rc1)."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "assemblyVersion=$numericVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore "${{ vars.PROJECT_NAME }}.csproj"
+
+      - name: Publish self-contained single-file (win-x64)
+        run: >
+          dotnet publish "${{ vars.PROJECT_NAME }}.csproj"
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.assemblyVersion }}
+          -p:FileVersion=${{ steps.version.outputs.assemblyVersion }}
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc `
+            "/DPublishDir=$($PWD.Path)\bin\Release\net10.0\win-x64\publish" `
+            "/DAppVersion=${{ steps.version.outputs.version }}" `
+            installer\setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC.exe failed with exit code $LASTEXITCODE" }
+
+      - name: Compute installer checksum
+        id: checksum
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "installer\dist\*.exe" | Select-Object -First 1
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content "installer\dist\$($installer.Name).sha256"
+          "installerPath=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          "installerName=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          "checksumPath=installer\dist\$($installer.Name).sha256" >> $env:GITHUB_OUTPUT
+          Write-Host "SHA256: $hash"
+
+      - name: Create GitHub Release (public releases-only repo)
+        env:
+          # RELEASES_REPO_TOKEN: token with write access to the SEPARATE
+          # public repo referenced by the 'RELEASES_REPO' variable (no
+          # source code, installers only) - required because the built-in
+          # secrets.GITHUB_TOKEN is scoped to THIS repo only and cannot
+          # create releases on a different repository. See INSTALLER.md
+          # "Distribution des installeurs" for how this secret/variable is
+          # configured and why installers no longer live on the source repo.
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "${{ steps.checksum.outputs.installerPath }}" `
+            "${{ steps.checksum.outputs.checksumPath }}" `
+            --repo "${{ vars.RELEASES_REPO }}" `
+            --title "${{ env.PRODUCT_DISPLAY_NAME }} ${{ steps.version.outputs.version }}" `
+            --notes "Voir le CHANGELOG.md du depot principal (${{ github.repository }}) pour le detail des changements de cette version."
