@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AuthFlow.AppKit</RootNamespace>
+
+    <!-- NuGet package metadata (GitHub Packages) -->
+    <PackageId>AuthFlow.AppKit</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Brackford-0brien</Authors>
+    <Description>
+      Reusable AuthFlow license activation/validation + in-app update-check
+      integration for ASP.NET Core Blazor Server apps (Kestrel + Windows
+      Service). Extracted from the FneManuelInvoiceApp pilot integration -
+      see https://github.com/Brackford-0brien/AuthFlow-AppKit for docs.
+    </Description>
+    <RepositoryUrl>https://github.com/Brackford-0brien/AuthFlow-AppKit</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Gives access to ASP.NET Core / Blazor Server APIs (IHostedService,
+         Microsoft.AspNetCore.Components, etc.) from this Razor Class
+         Library without having to reference the full ASP.NET Core SDK. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AuthFlow.LicenseClient" Version="0.1.0" />
+    <PackageReference Include="Radzen.Blazor" Version="6.0.0" />
+  </ItemGroup>
+
+</Project>

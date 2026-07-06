@@ -1,0 +1,178 @@
+@page "/update-check"
+@using AuthFlow.AppKit.Services
+@using AuthFlow.LicenseClient.Models
+@inject AppUpdateService AppUpdateService
+@inject NotificationService NotificationService
+
+<div class="page-header">
+    <h1>
+        <RadzenIcon Icon="system_update" Style="color: var(--color-blue-300, #1976d2);" />
+        Mises à jour
+    </h1>
+    <div style="display: flex; gap: 0.5rem;">
+        <RadzenButton Icon="refresh" Text="Vérifier les mises à jour" ButtonStyle="ButtonStyle.Light"
+                      Click="@CheckForUpdateAsync" Disabled="@(_isChecking || _isDownloading)" />
+    </div>
+</div>
+
+<div class="content-area">
+    <div class="dashboard-card" style="max-width: 640px; padding: 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <span style="color: var(--rz-text-secondary-color); font-size: 0.85rem;">Version actuellement installée</span>
+                <p style="margin: 0; font-size: 1.35rem; font-weight: 600;">@AppUpdateService.CurrentVersion</p>
+            </div>
+            @if (_lastCheckedAt is not null)
+            {
+                <span style="color: var(--rz-text-secondary-color); font-size: 0.8rem;">
+                    Dernière vérification : @_lastCheckedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                </span>
+            }
+        </div>
+
+        <RadzenDivider Style="margin: 1rem 0;" />
+
+        @if (_isChecking)
+        {
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                <span>Vérification en cours auprès du serveur AuthFlow...</span>
+            </div>
+        }
+        else if (_error is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Icon="error">
+                @_error
+            </RadzenAlert>
+            <div style="margin-top: 0.75rem;">
+                <RadzenButton Icon="refresh" Text="Réessayer" ButtonStyle="ButtonStyle.Light" Click="@CheckForUpdateAsync" />
+            </div>
+        }
+        else if (_result is not null)
+        {
+            @if (_result.UpdateAvailable)
+            {
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <RadzenIcon Icon="new_releases" Style="color: var(--rz-info); font-size: 2rem;" />
+                    <div>
+                        <div style="font-weight: 600;">Une nouvelle version est disponible</div>
+                        <div style="display: flex; align-items: center; gap: 0.4rem; color: var(--rz-text-secondary-color);">
+                            <span>@AppUpdateService.CurrentVersion</span>
+                            <RadzenIcon Icon="arrow_forward" Style="font-size: 1rem;" />
+                            <strong style="color: var(--color-blue-300, #1976d2);">@_result.LatestVersion</strong>
+                            @if (_result.Mandatory)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Obligatoire" Style="margin-left: 0.4rem;" />
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_result.Changelog))
+                {
+                    <div style="margin-top: 1rem; background: var(--rz-base-100, rgba(0,0,0,0.03)); border-radius: 6px; padding: 0.75rem 1rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.35rem;">Notes de version</div>
+                        <div style="white-space: pre-wrap; font-size: 0.92rem;">@_result.Changelog</div>
+                    </div>
+                }
+
+                @if (_downloadError is not null)
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Icon="error" Style="margin-top: 1rem;">
+                        @_downloadError
+                    </RadzenAlert>
+                }
+
+                <div style="margin-top: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+                    <RadzenButton Icon="download" Text="Télécharger et installer" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@DownloadAndInstallAsync" Disabled="@_isDownloading" />
+                    @if (_downloadError is not null)
+                    {
+                        <RadzenButton Icon="refresh" Text="Réessayer" ButtonStyle="ButtonStyle.Light"
+                                      Click="@DownloadAndInstallAsync" Disabled="@_isDownloading" />
+                    }
+                </div>
+
+                @if (_isDownloading)
+                {
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem;">
+                        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                        <span>Téléchargement de l'installeur... L'assistant d'installation va s'ouvrir (le service sera brièvement arrêté puis redémarré par l'installeur).</span>
+                    </div>
+                }
+            }
+            else
+            {
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <RadzenIcon Icon="check_circle" Style="color: var(--rz-success); font-size: 2rem;" />
+                    <span>Vous utilisez déjà la dernière version disponible.</span>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private bool _isChecking;
+    private bool _isDownloading;
+    private UpdateCheckResult? _result;
+    private string? _error;
+    private string? _downloadError;
+    private DateTimeOffset? _lastCheckedAt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckForUpdateAsync();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        _isChecking = true;
+        _error = null;
+        _downloadError = null;
+        _result = null;
+        StateHasChanged();
+
+        try
+        {
+            _result = await AppUpdateService.CheckForUpdateAsync();
+            _lastCheckedAt = DateTimeOffset.Now;
+        }
+        catch (Exception ex)
+        {
+            // The SDK's UpdateChecker already returns UpdateCheckResult.Unavailable()
+            // on network errors instead of throwing, so a real exception here
+            // means something unexpected happened - surface it rather than
+            // silently pretending "no update available".
+            _error = $"Impossible de vérifier les mises à jour : {ex.Message}";
+        }
+        finally
+        {
+            _isChecking = false;
+        }
+    }
+
+    private async Task DownloadAndInstallAsync()
+    {
+        if (_result is null) return;
+
+        _isDownloading = true;
+        _downloadError = null;
+        StateHasChanged();
+
+        try
+        {
+            await AppUpdateService.DownloadAndLaunchInstallerAsync(_result);
+            NotificationService.Notify(NotificationSeverity.Success, "Mise à jour",
+                "L'installeur a été lancé. Suivez l'assistant pour terminer la mise à jour.");
+        }
+        catch (Exception ex)
+        {
+            _downloadError = $"Échec du téléchargement/lancement de l'installeur : {ex.Message}";
+        }
+        finally
+        {
+            _isDownloading = false;
+        }
+    }
+}

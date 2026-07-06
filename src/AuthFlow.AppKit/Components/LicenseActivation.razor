@@ -1,0 +1,351 @@
+@page "/license-activation"
+@using AuthFlow.AppKit.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Options
+@using System.Text
+@inject AuthFlowLicenseManager AuthFlowLicenseManager
+@inject NavigationManager NavigationManager
+@inject IOptions<AuthFlowAppKitOptions> AppKitOptions
+@implements IDisposable
+
+@* Reusable ".lic" file import page. Routed at "/license-activation" by
+   default - point your app's navigation / startup redirect here when
+   AuthFlowLicenseState.IsValid is false. If your app needs a different
+   layout (e.g. a bare/unauthenticated layout with no nav menu), wrap this
+   component in your own page that sets @@layout and embeds
+   <AuthFlowAppKit.Components.LicenseActivation /> instead of relying on the
+   default route - see README.md "Page d'activation". *@
+
+<div class="license-activation-container">
+    <div class="license-activation-card">
+        <div class="license-header">
+            <RadzenIcon Icon="lock" Style="font-size: 3rem; color: var(--color-blue-400, #1976d2); margin-bottom: 1rem;" />
+            <h1>Import de la licence</h1>
+            <p class="subtitle">@(AppKitOptions.Value.ProductDisplayName ?? AppKitOptions.Value.ServiceBaseName)</p>
+        </div>
+
+        @if (!_isActivated)
+        {
+            <div class="license-form">
+                <div class="info-panel">
+                    <RadzenIcon Icon="info" Style="color: var(--color-info, #0288d1);" />
+                    <div>
+                        <p>Cette application nécessite un fichier de licence <strong>.lic</strong> propre à votre organisation.</p>
+                        <p class="help-text">
+                            Téléchargez votre fichier depuis le tableau de bord AuthFlow (fourni par votre administrateur/support),
+                            puis importez-le ci-dessous. Le fingerprint de cette machine est détecté automatiquement, vous n'avez
+                            rien d'autre à saisir.
+                        </p>
+                    </div>
+                </div>
+
+                @if (AuthFlowLicenseState.HasRun && !AuthFlowLicenseState.IsValid)
+                {
+                    <div class="error-alert">
+                        <RadzenIcon Icon="warning" />
+                        <span>Licence actuelle : @AuthFlowLicenseState.Reason</span>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="error-alert">
+                        <RadzenIcon Icon="error" />
+                        <span>@_errorMessage</span>
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label for="license-file">Fichier de licence (.lic)</label>
+                    <InputFile id="license-file" OnChange="OnFileSelected" accept=".lic,.txt" disabled="@_isValidating" />
+                </div>
+
+                @if (_isValidating)
+                {
+                    <div class="validating-message">
+                        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                        <span>Activation et vérification en cours...</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="success-panel">
+                <RadzenIcon Icon="check_circle" Style="font-size: 4rem; color: var(--color-success, #2e7d32); margin-bottom: 1rem;" />
+                <h2>Licence activée avec succès!</h2>
+
+                <div class="license-details">
+                    <div class="detail-item">
+                        <label>Statut</label>
+                        <span>@(AuthFlowLicenseState.IsOffline ? "Valide (mode hors-ligne)" : "Valide (vérifié en ligne)")</span>
+                    </div>
+                    @if (AuthFlowLicenseState.ExpiresAt is DateTimeOffset expiresAt)
+                    {
+                        <div class="detail-item">
+                            <label>Date d'expiration</label>
+                            <span>@expiresAt.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="detail-item">
+                            <label>Date d'expiration</label>
+                            <span>Aucune (licence perpétuelle)</span>
+                        </div>
+                    }
+                </div>
+
+                <RadzenButton Text="Continuer vers l'application"
+                              Icon="arrow_forward"
+                              ButtonStyle="ButtonStyle.Success"
+                              Click="@ContinueToApp"
+                              Style="margin-top: 1.5rem; width: 100%;" />
+            </div>
+        }
+
+        <div class="license-footer">
+            <p>© @DateTime.Now.Year @(AppKitOptions.Value.CompanyName) - Tous droits réservés</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .license-activation-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--gradient-light, #f4f6f8);
+        padding: 2rem;
+    }
+
+    .license-activation-card {
+        background: var(--color-white, #fff);
+        border-radius: var(--radius-xl, 12px);
+        box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.12));
+        padding: 2.5rem;
+        max-width: 600px;
+        width: 100%;
+    }
+
+    .license-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .license-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--color-blue-500, #1565c0);
+    }
+
+    .license-header .subtitle {
+        color: var(--color-gray-500, #6c757d);
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .license-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .info-panel {
+        background: var(--color-info-light, #e3f2fd);
+        border: 1px solid var(--color-info, #0288d1);
+        border-left: 4px solid var(--color-info, #0288d1);
+        border-radius: var(--radius, 6px);
+        padding: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .info-panel p {
+        margin: 0.25rem 0;
+        font-size: 0.875rem;
+    }
+
+    .help-text {
+        color: var(--color-gray-600, #666);
+        font-size: 0.8125rem !important;
+    }
+
+    .error-alert {
+        background: var(--color-error-light, #fdecea);
+        border: 1px solid var(--color-error, #e53935);
+        border-left: 4px solid var(--color-error, #e53935);
+        border-radius: var(--radius, 6px);
+        padding: 0.875rem 1rem;
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        color: var(--color-error, #b71c1c);
+        font-size: 0.875rem;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        color: var(--color-gray-700, #444);
+        font-size: 0.9375rem;
+    }
+
+    .validating-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        color: var(--color-blue-400, #1976d2);
+        font-size: 0.9375rem;
+    }
+
+    .success-panel {
+        text-align: center;
+    }
+
+    .success-panel h2 {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--color-success, #2e7d32);
+    }
+
+    .license-details {
+        background: var(--color-gray-50, #fafafa);
+        border-radius: var(--radius-lg, 8px);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--color-gray-200, #eee);
+    }
+
+    .detail-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .detail-item label {
+        font-size: 0.875rem;
+        color: var(--color-gray-500, #6c757d);
+        font-weight: 600;
+    }
+
+    .detail-item span {
+        font-size: 1rem;
+        color: var(--color-gray-800, #333);
+        font-weight: 600;
+    }
+
+    .license-footer {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-gray-200, #eee);
+        text-align: center;
+    }
+
+    .license-footer p {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--color-gray-500, #6c757d);
+    }
+</style>
+
+@code {
+    // Max accepted .lic file size - the token is a small signed string
+    // (a few hundred bytes to a few KB), 64 KB is a generous ceiling that
+    // still prevents accidental upload of the wrong (large) file.
+    private const long MaxLicenseFileSize = 64 * 1024;
+
+    private string _errorMessage = string.Empty;
+    private bool _isValidating = false;
+    private bool _isActivated = false;
+
+    protected override void OnInitialized()
+    {
+        // If the app is already valid (e.g. the customer navigated here
+        // manually after a successful import), show the success panel
+        // directly instead of the upload form. Otherwise the reason panel
+        // above reads AuthFlowLicenseState live and updates automatically.
+        if (AuthFlowLicenseState.HasRun && AuthFlowLicenseState.IsValid)
+        {
+            _isActivated = true;
+        }
+
+        AuthFlowLicenseState.Changed += OnAuthFlowStateChanged;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _errorMessage = string.Empty;
+        _isValidating = true;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            if (file.Size > MaxLicenseFileSize)
+            {
+                _errorMessage = $"Fichier trop volumineux ({file.Size} octets, maximum {MaxLicenseFileSize}).";
+                return;
+            }
+
+            string content;
+            await using (var stream = file.OpenReadStream(MaxLicenseFileSize))
+            using (var reader = new StreamReader(stream, Encoding.UTF8))
+            {
+                content = await reader.ReadToEndAsync();
+            }
+
+            var (success, reason) = await AuthFlowLicenseManager.ImportAndActivateAsync(content, CancellationToken.None);
+            if (success)
+            {
+                _isActivated = true;
+            }
+            else
+            {
+                _errorMessage = reason ?? "Licence invalide.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Erreur lors de l'import: {ex.Message}";
+        }
+        finally
+        {
+            _isValidating = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ContinueToApp()
+    {
+        NavigationManager.NavigateTo("/", forceLoad: true);
+    }
+
+    private void OnAuthFlowStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthFlowLicenseState.Changed -= OnAuthFlowStateChanged;
+    }
+}

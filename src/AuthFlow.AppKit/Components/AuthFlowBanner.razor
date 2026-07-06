@@ -1,0 +1,79 @@
+@* Reusable "license state" banner: warns (never blocks) when the AuthFlow
+   license is invalid/revoked or running in offline/grace-period mode.
+   Include it in your app's MainLayout (and any other layout that should
+   stay usable even with an invalid license) - see README.md "Intégration
+   UI". *@
+@using AuthFlow.AppKit.Services
+@implements IDisposable
+
+@if (AuthFlowLicenseState.HasRun && !AuthFlowLicenseState.IsValid)
+{
+    <div class="authflow-banner authflow-banner-error">
+        <RadzenIcon Icon="warning" />
+        <span>
+            Licence AuthFlow invalide ou révoquée@(string.IsNullOrWhiteSpace(AuthFlowLicenseState.Reason) ? "" : $" : {AuthFlowLicenseState.Reason}").
+            Contactez votre administrateur pour importer une licence valide.
+        </span>
+    </div>
+}
+else if (AuthFlowLicenseState.HasRun && AuthFlowLicenseState.IsOffline)
+{
+    <div class="authflow-banner authflow-banner-warning">
+        <RadzenIcon Icon="cloud_off" />
+        <span>
+            Licence AuthFlow validée en mode hors-ligne (grace period)@(AuthFlowLicenseState.ExpiresAt is { } exp ? $", expire le {exp:g}" : "").
+        </span>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        // The license/heartbeat check runs in a background IHostedService
+        // and can complete well after this component's first render
+        // (network round-trips). AuthFlowLicenseState is app-wide (not
+        // per-user/circuit) - it only reflects "is this install's license
+        // currently valid", so sharing it across all Blazor Server circuits
+        // is intentional, not a data-isolation issue. Subscribe so this
+        // component re-renders (via StateHasChanged) whenever the SDK check
+        // result changes, instead of only reflecting whatever the state
+        // happened to be at this component's very first render.
+        AuthFlowLicenseState.Changed += OnAuthFlowLicenseStateChanged;
+    }
+
+    private void OnAuthFlowLicenseStateChanged()
+    {
+        // Fired from a background thread (hosted service) - marshal back to
+        // this circuit's synchronization context before re-rendering.
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthFlowLicenseState.Changed -= OnAuthFlowLicenseStateChanged;
+    }
+}
+
+<style>
+    .authflow-banner {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .authflow-banner-error {
+        background: #fdecea;
+        color: #a12622;
+        border: 1px solid #f5c6cb;
+    }
+
+    .authflow-banner-warning {
+        background: #fff8e1;
+        color: #8a6d00;
+        border: 1px solid #ffe4a3;
+    }
+</style>

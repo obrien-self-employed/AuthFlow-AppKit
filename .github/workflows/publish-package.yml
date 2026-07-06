@@ -1,0 +1,60 @@
+name: Publish AuthFlow.AppKit NuGet package
+
+# Builds and publishes the AuthFlow.AppKit library (and, once added, the
+# dotnet-new template pack) to this repo's GitHub Packages NuGet feed
+# whenever a version tag is pushed. Consuming apps then simply bump
+# <Version> in AuthFlow.AppKit.csproj and push a matching tag to release a
+# new version - see README.md "Publier une nouvelle version".
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore src/AuthFlow.AppKit/AuthFlow.AppKit.csproj
+
+      - name: Build (Release)
+        run: dotnet build src/AuthFlow.AppKit/AuthFlow.AppKit.csproj -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack src/AuthFlow.AppKit/AuthFlow.AppKit.csproj -c Release --no-build -o ${{ github.workspace }}/out
+
+      - name: Pack dotnet-new template (if present)
+        run: |
+          if (Test-Path "template/AuthFlow.Template.csproj") {
+            dotnet pack template/AuthFlow.Template.csproj -c Release -o ${{ github.workspace }}/out
+          } else {
+            Write-Host "No template project found yet - skipping."
+          }
+        shell: pwsh
+
+      - name: Push to GitHub Packages
+        run: |
+          dotnet nuget push "${{ github.workspace }}/out/*.nupkg" `
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+            --api-key ${{ secrets.GITHUB_TOKEN }} `
+            --skip-duplicate
+        shell: pwsh
+
+      - name: Upload nupkg as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: ${{ github.workspace }}/out/*.nupkg
