@@ -33,14 +33,73 @@ ni pour `dotnet restore`/`dotnet build`, ni pour `dotnet new install`.
 > restent des bibliothèques génériques sans donnée client réelle en dur (voir
 > "Sécurité" plus bas) - c'est ce qui rend leur publication publique acceptable.
 
-## Créer une nouvelle app en 2 commandes
+## Créer une nouvelle app en 2 commandes (template v0.1.2)
+
+Le template `AuthFlow.Template` a été publié en v0.1.2 pour ajouter le tag
+langage C# et améliorer la découverte Visual Studio. Pour créer une nouvelle
+app :
 
 ```powershell
 dotnet new install AuthFlow.Template
-dotnet new authflow-blazor -n MyNewApp
-cd MyNewApp
+dotnet new authflow-blazor -n MonApp
+cd MonApp
 dotnet build
 ```
+
+Note : aucune version explicite n'est nécessaire (la commande installe la
+dernière version stable du template). Si vous préférez fixer une version
+précise : `dotnet new install AuthFlow.Template::0.1.2`.
+
+### Exemple de nuget.config (optionnel)
+
+Si vous travaillez en interne et préférez configurer un `nuget.config` local
+(ex. pour basculer de nuget.org vers un miroir), voici un exemple minimal :
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+</configuration>
+```
+
+### PAT GitHub (scope minimal `read:packages`) — uniquement si vous utilisez
+un feed GitHub Packages privé
+
+1. Allez sur https://github.com/settings/tokens → "Generate new token (classic)".
+2. Cochez uniquement `read:packages`.
+3. Copiez la valeur et placez-la dans `nuget.config` (clé `ClearTextPassword`) ou
+   configurez-la avec la CLI :
+
+```powershell
+dotnet nuget add source https://nuget.pkg.github.com/Brackford-0brien/index.json `
+  -n authflow-appkit-github -u YOUR_GITHUB_USERNAME -p ghp_YOUR_read_packages_TOKEN --store-password-in-clear-text
+```
+
+(Attention : ne commitez jamais un PAT dans le repo.)
+
+### Packages runtime publics (nuget.org)
+
+- https://www.nuget.org/packages/AuthFlow.LicenseClient (SDK de licence)
+- https://www.nuget.org/packages/AuthFlow.AppKit (librairie AppKit)
+- https://www.nuget.org/packages/AuthFlow.Template (dotnet-new template)
+
+Le template référence automatiquement `AuthFlow.AppKit` ; `AuthFlow.LicenseClient`
+est résolu transitivement.
+
+### Dépannage rapide
+
+- Si `dotnet run` renvoie `ERR_ADDRESS_INVALID` ou l'app ne démarre pas sur
+  le port attendu : essayez `dotnet run --urls http://localhost:5000` ou
+  vérifiez la variable d'environnement `ASPNETCORE_URLS` / la section `Kestrel`
+  du `appsettings.json`.
+- Si `dotnet restore` échoue à résoudre `AuthFlow.AppKit`, vérifiez que la
+  résolution nuget pointe bien vers `nuget.org` (aucun PAT n'est nécessaire
+  pour les packages publics). Si vous voyez une erreur de version, essayez
+  `dotnet nuget locals all --clear` pour vider le cache local, puis
+  `dotnet restore`.
 
 La valeur de `-n` devient le nom du projet/namespace/service, le GUID `AppId`
 de l'installeur est régénéré automatiquement à chaque instanciation. Ajustez

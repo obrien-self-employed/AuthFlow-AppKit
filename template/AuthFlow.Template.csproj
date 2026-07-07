@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>AuthFlow.Template</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>Brackford-0brien</Authors>
     <Description>
       dotnet-new template pack: scaffolds a Blazor Server app pre-wired with

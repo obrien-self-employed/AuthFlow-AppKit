@@ -7,6 +7,10 @@
   "shortName": "authflow-blazor",
   "sourceName": "AuthFlowApp1",
   "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
   "symbols": {
     "installerGuid": {
       "type": "generated",
