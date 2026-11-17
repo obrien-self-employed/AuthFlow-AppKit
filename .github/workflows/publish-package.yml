@@ -45,18 +45,6 @@ jobs:
           }
         shell: pwsh
 
-      - name: Copy vendored AuthFlow.LicenseClient SDK nupkg
-        # AuthFlow.AppKit depends on AuthFlow.LicenseClient (PackageReference).
-        # That SDK isn't built from source in this repo - it's vendored as a
-        # pre-built nupkg in local-nuget-feed/ (see README "Where the SDK
-        # comes from"). It must be published to the same GitHub Packages feed
-        # or restoring AuthFlow.AppKit on a clean machine will fail with
-        # NU1101 (package not found), since the local-nuget-feed folder isn't
-        # available outside this repo checkout.
-        run: |
-          Copy-Item "local-nuget-feed\AuthFlow.LicenseClient.*.nupkg" -Destination "${{ github.workspace }}\out"
-        shell: pwsh
-
       - name: Push to GitHub Packages
         run: |
           $nupkgs = Get-ChildItem -Path "${{ github.workspace }}\out" -Filter *.nupkg
