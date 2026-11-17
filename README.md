@@ -12,11 +12,11 @@ packages NuGet, **publiés publiquement sur nuget.org** :
 | [`AuthFlow.AppKit`](https://www.nuget.org/packages/AuthFlow.AppKit) | Librairie de classes : store/manager/hosted-service de licence, `AppUpdateService`, et les composants Razor UI (`AuthFlowBanner`, `LicenseActivation`, `UpdateCheck`). Dépend de `AuthFlow.LicenseClient`. |
 | [`AuthFlow.Template`](https://www.nuget.org/packages/AuthFlow.Template) | Un template pack `dotnet new` (`PackageType=Template`) qui génère une nouvelle app Blazor Server déjà câblée avec `AuthFlow.AppKit` + le SDK AuthFlow, l'hébergement Kestrel/Windows Service, l'installeur Inno Setup, et le pipeline CI/CD de release générique. Aussi visible dans le sélecteur **Créer un nouveau projet** de Visual Studio (recherchez "authflow") une fois l'indexation nuget.org terminée. |
 
-`AuthFlow.LicenseClient` n'est pas compilé depuis les sources dans ce repo -
-le `.nupkg` pré-construit est vendored sous `local-nuget-feed/` (copié depuis
-une build locale du repo source `AuthFlow`) et republié par ce repo vers
-nuget.org à chaque nouvelle version. Les consommateurs n'ont jamais besoin de
-la copie vendored ni du repo source `AuthFlow` - juste de nuget.org.
+`AuthFlow.LicenseClient` n'est pas compilé dans ce repo : il est construit et
+publié depuis le repo `AuthFlow` (`sdk/dotnet/AuthFlow.LicenseClient`), et ce
+repo le restaure depuis nuget.org comme n'importe quel consommateur. Aucun
+`.nupkg` n'est commité ici (l'ancien dossier `local-nuget-feed/` a été retiré :
+ses paquets sont identiques à ceux de nuget.org).
 
 ## Aucune configuration de feed nécessaire
 
@@ -134,10 +134,9 @@ Top-level Package                                Requested    Resolved
 1. Bumpez `<Version>` dans `src/AuthFlow.AppKit/AuthFlow.AppKit.csproj` (et
    `template/AuthFlow.Template.csproj` si vous avez modifié le template, et
    `template/content/AuthFlowApp1/AuthFlowApp1.csproj` pour pointer la bonne
-   version d'`AuthFlow.AppKit` dans le projet généré). Si le SDK
-   `AuthFlow.LicenseClient` a changé, bumpez aussi sa version dans
-   `Brackford-0brien/AuthFlow` et copiez le nouveau `.nupkg` dans
-   `local-nuget-feed/`.
+   version d'`AuthFlow.AppKit` dans le projet généré). Si AppKit doit
+   utiliser une nouvelle version du SDK `AuthFlow.LicenseClient`, publiez-la
+   d'abord depuis le repo `AuthFlow` puis mettez à jour sa `PackageReference`.
 2. `dotnet pack` chaque projet modifié en local pour vérifier que ça
    compile et se pack sans erreur avant de publier.
 3. Publiez sur nuget.org, **dans cet ordre de dépendance** (LicenseClient
@@ -145,9 +144,11 @@ Top-level Package                                Requested    Resolved
    LicenseClient soit indexé) :
 
    ```powershell
-   dotnet nuget push local-nuget-feed\AuthFlow.LicenseClient.<version>.nupkg -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
-   dotnet nuget push local-nuget-feed\AuthFlow.AppKit.<version>.nupkg        -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
-   dotnet nuget push local-nuget-feed\AuthFlow.Template.<version>.nupkg     -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
+   # depuis le repo AuthFlow, seulement si le SDK a changé :
+   dotnet nuget push sdk\dotnet\AuthFlow.LicenseClient\bin\Release\AuthFlow.LicenseClient.<version>.nupkg -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
+   # depuis ce repo, après `dotnet pack -c Release -o out` :
+   dotnet nuget push out\AuthFlow.AppKit.<version>.nupkg    -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
+   dotnet nuget push out\AuthFlow.Template.<version>.nupkg  -s https://api.nuget.org/v3/index.json -k <NUGET_ORG_API_KEY>
    ```
 
    L'API key se génère sur https://www.nuget.org/account/apikeys (scope
